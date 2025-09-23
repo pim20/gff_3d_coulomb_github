@@ -25,12 +25,12 @@ end subroutine
 
 !_______________________________________________________________________________
 !this is for setting the grid
-subroutine setup_grid(x, n,a,b)
+subroutine setup_grid(x, n,a,b,dx)
   implicit none
   real(8), intent(in) :: a,b
   integer, intent(in) :: n
   real(8), intent(out) :: x(n)
-  real(8):: dx
+  real(8), intent(out):: dx
   integer :: i
   dx= (b-a)/(n-1)
   do i = 1, n
@@ -121,18 +121,21 @@ end subroutine
 ! introducing identity in between |int dx'' \ket{x''} \bra{x''}
 !the terms become int dx'' \bra{x} exp{-beta/2(H0)} \ket{x''} exp(-beta/2(W(x'')))*
 ! \bra{x''}  exp{-beta/2(H0)} \ket{x'} exp(-beta/2(W(x')))
-subroutine suzuki_trotterm2(beta, nwpot, ngridpt, dx, xgrid, valm2)
+subroutine suzuki_trotterm2(beta, nwpot, ngridpt, a,b,xgrid, valm2)
   implicit none
-  integer(8), intent(in) :: ngridpt
-  real(8), intent(in)    :: xgrid(ngridpt)
-  real(8), intent(in)    :: beta, dx
+  integer, intent(in)    :: ngridpt
+  real(8) , intent(out)               :: xgrid(ngridpt)
+  real(8), intent(in)    :: beta,a,b
   integer, intent(in)    :: nwpot
   real(8), intent(out)   :: valm2(ngridpt, ngridpt)
 
   integer :: i, j, k
-  real(8) :: x, xprime, xdprime
-  real(8) :: gf1, gf2, expwxp, expwxd, integrand, sum
+  real(8) :: x, xprime, xdprime,dx
+  real(8) :: gf1, gf2, expwxp, expwxd, integrand, summ
 
+  call setup_grid(xgrid, ngridpt,a,b,dx)
+  !
+  !open(unit=2, file = "test_suzuki_trotterm2_nwpot1.txt", status= "replace", action="write")
   do i = 1, ngridpt
     x = xgrid(i)
     do j = 1, ngridpt
@@ -141,7 +144,7 @@ subroutine suzuki_trotterm2(beta, nwpot, ngridpt, dx, xgrid, valm2)
       ! potential factor at x'
       call expow(beta/2.d0, nwpot, xprime, expwxp)
 
-      sum = 0.d0
+      summ = 0.d0
       do k = 1, ngridpt
         xdprime = xgrid(k)
 
@@ -151,19 +154,74 @@ subroutine suzuki_trotterm2(beta, nwpot, ngridpt, dx, xgrid, valm2)
 
         integrand = gf1 * expwxd * gf2
         if (k == 1 .or. k == ngridpt) then
-          sum = sum + 0.5d0 * integrand
+          summ = summ + 0.5d0 * integrand
         else
-          sum = sum + integrand
+          summ = summ + integrand
         end if
       end do
 
-      valm2(i,j) = expwxp * sum * dx
+      valm2(i,j) = expwxp * summ * dx
+    !  write(2,*) x , xprime, valm2(i,j)
     end do
   end do
-end subroutine suzuki_trotterm2
 
-  !call gfree(beta, x, xdprime, gfxxd0)
-  !call gfree(beta, xdprime, xprime, gfxdxp0)
-  !call expow(beta, nwpot, xdprime, expwvalxdp)
-  !call expow(beta, nwpot, xprime, expwvalxp)
+  close(2)
+end subroutine suzuki_trotterm2
+!_______________________________________________________________________________
+subroutine suzuki_trotterm3(beta, nwpot, ngridpt, a,b,xgrid, valm3)
+  implicit none
+  integer, intent(in)    :: ngridpt, nwpot
+  real(8), intent(out)   :: xgrid(ngridpt)
+  real(8), intent(in)    :: a,b
+  real(8), intent(in)    :: beta
+  real(8), intent(out)   :: valm3(ngridpt, ngridpt)
+  integer                :: i,j,k,l
+  real(8)                :: gf1, gf2, gf3
+  real(8)                :: x, xp, xd1, xd2,dx
+  real(8)                :: expwxp, expwxd1, expwxd2
+  real(8)                :: integrand,summ
+
+  call setup_grid(xgrid, ngridpt,a,b,dx)
+
+  do i = 1, ngridpt
+    x= xgrid(i)
+    do j =1, ngridpt
+      xp = xgrid(j)
+      call expow(beta/3.d0, nwpot, xp, expwxp)
+      summ=0.0d0
+      do k = 1, ngridpt
+        xd1= xgrid(k)
+        call expow(beta/3.d0, nwpot, xd1, expwxd1)
+        call gfree(beta/3.d0, x, xd1, gf1)
+        do l =1, ngridpt
+          xd2= xgrid(l)
+          call expow(beta/3.d0, nwpot, xd2, expwxd2)
+          call gfree(beta/3.d0, xd1, xd2, gf2)
+          call gfree(beta/3.d0, xd2, xp, gf3)
+
+          integrand = expwxd1*gf1*gf2*gf3*expwxd2
+
+          !applying 2D trapezoidal rule
+          if ((k==1 .or. k==ngridpt) .and. (l==1 .or. l == ngridpt)) then
+            summ =summ + 0.25d0* integrand
+          !
+          else if ((k==1 .or. k==ngridpt) .or. (l==1 .or. l == ngridpt)) then
+            summ = summ +0.5d0*integrand
+          else
+            summ = summ+ integrand
+          end if
+
+        end do
+      end do
+      !integrate
+      valm3(i,j) = expwxp * summ * dx * dx
+    end do
+  end do
+
+
+
+end subroutine
+
+
+
 end module
