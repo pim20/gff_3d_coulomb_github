@@ -165,7 +165,7 @@ subroutine suzuki_trotterm2(beta, nwpot, ngridpt, a,b,xgrid, valm2)
     end do
   end do
 
-  close(2)
+  !close(2)
 end subroutine suzuki_trotterm2
 !_______________________________________________________________________________
 subroutine suzuki_trotterm3(beta, nwpot, ngridpt, a,b,xgrid, valm3)
