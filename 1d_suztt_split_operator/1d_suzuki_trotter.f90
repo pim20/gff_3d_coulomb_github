@@ -101,15 +101,29 @@ end subroutine
 
 !_______________________________________________________________________________
 !this subroutine is for suzuki trotter but m=1 term
-subroutine suzuki_trotterm1(beta,nwpot, x, xprime, val)
+subroutine suzuki_trotterm1(beta,nwpot, ngridpt, a,b, xgrid, valm1)
   implicit none
-  real(8), intent(in):: beta, x, xprime
-  real(8), intent(out):: val
-  real(8):: gf0, wx, expwval
+  integer, intent(in):: ngridpt
+  real(8), intent(in):: beta,a,b
+  real(8), intent(out):: xgrid(ngridpt)
+  real(8), intent(out):: valm1(ngridpt, ngridpt)
+  real(8):: gf0, wx, expwval, x, xprime,dx
   integer, intent(in)::nwpot
-  call gfree(beta, x, xprime, gf0)
-  call expow(beta, nwpot, x, expwval)
-  call multiplication(gf0 , expwval, val)
+  integer            :: i, j
+  call setup_grid(xgrid, ngridpt,a,b,dx)
+  do i =1, ngridpt
+    x= xgrid(i)
+    call expow(beta, nwpot, x, expwval)
+    do j=1,ngridpt
+      xprime = xgrid(j)
+      call gfree(beta, x, xprime, gf0)
+      valm1(i,j) = gf0*expwval
+    end do
+  end do
+
+
+
+  !call multiplication(gf0 , expwval, val)
   !val = gf0* exp(-(beta*wx))
 
 end subroutine
@@ -124,7 +138,7 @@ end subroutine
 subroutine suzuki_trotterm2(beta, nwpot, ngridpt, a,b,xgrid, valm2)
   implicit none
   integer, intent(in)    :: ngridpt
-  real(8) , intent(out)               :: xgrid(ngridpt)
+  real(8) , intent(out)  :: xgrid(ngridpt)
   real(8), intent(in)    :: beta,a,b
   integer, intent(in)    :: nwpot
   real(8), intent(out)   :: valm2(ngridpt, ngridpt)
