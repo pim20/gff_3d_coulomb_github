@@ -69,6 +69,8 @@ subroutine gfree(beta, x, xprime,  gf0)
   gf0 = a0*exp(-b0*(x-xprime)**2)
 end subroutine
 !_______________________________________________________________________________
+
+!_______________________________________________________________________________
 !This subroutine writes the different form of interaction potential(W) used
 subroutine wpot(beta, nwpot,x, wx)
   implicit none
@@ -235,7 +237,135 @@ subroutine suzuki_trotterm3(beta, nwpot, ngridpt, a,b,xgrid, valm3)
 
 
 end subroutine
+!_______________________________________________________________________________
 
+!_______________________________________________________________________________
+subroutine suzuki_trotterm2_simpson(beta, nwpot, ngridpt, a, b, xgrid, valm2)
+  implicit none
+  integer, intent(in)    :: ngridpt
+  real(8), intent(out)   :: xgrid(ngridpt)
+  real(8), intent(in)    :: beta, a, b
+  integer, intent(in)    :: nwpot
+  real(8), intent(out)   :: valm2(ngridpt, ngridpt)
+
+  integer :: i, j, k
+  real(8) :: x, xprime, xdprime, dx
+  real(8) :: gf1, gf2, expwxp, expwxd, integrand, summ
+  integer :: weight
+
+  call setup_grid(xgrid, ngridpt, a, b, dx)
+
+  ! Check Simpson’s requirement
+  if (mod(ngridpt-1,2) /= 0) then
+     print *, "Warning: ngridpt must be odd for Simpson’s rule!"
+  end if
+
+  do i = 1, ngridpt
+    x = xgrid(i)
+    do j = 1, ngridpt
+      xprime = xgrid(j)
+
+      ! potential factor at x'
+      call expow(beta/2.d0, nwpot, xprime, expwxp)
+
+      summ = 0.d0
+      do k = 1, ngridpt
+        xdprime = xgrid(k)
+
+        call gfree(beta/2.d0, x, xdprime, gf1)
+        call gfree(beta/2.d0, xdprime, xprime, gf2)
+        call expow(beta/2.d0, nwpot, xdprime, expwxd)
+
+        integrand = gf1 * expwxd * gf2
+
+        ! Simpson’s weights
+        if (k == 1 .or. k == ngridpt) then
+          weight = 1
+        else if (mod(k,2) == 0) then
+          weight = 4
+        else
+          weight = 2
+        end if
+
+        summ = summ + weight * integrand
+      end do
+
+      valm2(i,j) = expwxp * summ * dx / 3.d0
+    end do
+  end do
+
+end subroutine suzuki_trotterm2_simpson
+!_______________________________________________________________________________
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!For slater type function
+
+!-------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+!this subroutine is for exp(-beta(x-xp))
+subroutine slater_type(beta, x, xprime, slatertyp)
+  implicit none
+  real(8), intent(in):: x, xprime
+  real(8), intent(in):: beta
+  real(8), intent(out):: slatertyp
+  real(8):: a0, b0, pi
+  pi= 4.0d0*atan(1.0d0)
+  a0=sqrt(1.0d0/(2.0d0*beta*pi))
+  b0= 1.0d0/(2.0d0*beta)
+  slatertyp = a0*exp(-b0*(x- xprime))
+
+end subroutine slater_type
+
+!-------------------------------------------------------------------------------
+! for m=2 for slater type
+
+subroutine suzuki_trotterm2_slatertyp(beta, nwpot, ngridpt, a,b,xgrid, valm2)
+  implicit none
+  integer, intent(in)    :: ngridpt
+  real(8) , intent(out)  :: xgrid(ngridpt)
+  real(8), intent(in)    :: beta,a,b
+  integer, intent(in)    :: nwpot
+  real(8), intent(out)   :: valm2(ngridpt, ngridpt)
+
+  integer :: i, j, k
+  real(8) :: x, xprime, xdprime,dx
+  real(8) :: gf1, gf2, expwxp, expwxd, integrand, summ
+
+  call setup_grid(xgrid, ngridpt,a,b,dx)
+  !
+  !open(unit=2, file = "test_suzuki_trotterm2_nwpot1.txt", status= "replace", action="write")
+  do i = 1, ngridpt
+    x = xgrid(i)
+    do j = 1, ngridpt
+      xprime = xgrid(j)
+
+      ! potential factor at x'
+      call expow(beta/2.d0, nwpot, xprime, expwxp)
+
+      summ = 0.d0
+      do k = 1, ngridpt
+        xdprime = xgrid(k)
+
+        call slater_type(beta/2.d0, x, xdprime, gf1)
+        call slater_type(beta/2.d0, xdprime, xprime, gf2)
+        call expow(beta/2.d0, nwpot, xdprime, expwxd)
+
+        integrand = gf1 * expwxd * gf2
+        if (k == 1 .or. k == ngridpt) then
+          summ = summ + 0.5d0 * integrand
+        else
+          summ = summ + integrand
+        end if
+      end do
+
+      valm2(i,j) = expwxp * summ * dx
+    !  write(2,*) x , xprime, valm2(i,j)
+    end do
+  end do
+
+  !close(2)
+end subroutine suzuki_trotterm2_slatertyp
 
 
 end module
